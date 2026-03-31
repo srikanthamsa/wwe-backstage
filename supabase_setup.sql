@@ -1,25 +1,24 @@
--- Run this entire block in Supabase SQL Editor
+-- WWE Backstage v2 — Run in Supabase SQL Editor
+-- These are NEW tables (bs2_*) so they won't conflict with v1
 
-drop table if exists backstage_trades;
-drop table if exists backstage_matches;
-drop table if exists backstage_state;
+drop table if exists bs2_storylines;
+drop table if exists bs2_trades;
+drop table if exists bs2_matches;
+drop table if exists bs2_state;
 
--- Main state table: rosters, titles, factions, activity feed
-create table backstage_state (
+create table bs2_state (
   id integer primary key default 1,
   rosters jsonb default '{}',
   championships jsonb default '{}',
   factions jsonb default '[]',
-  contract_signings jsonb default '[]',
-  activity_feed jsonb default '[]',
+  feed jsonb default '[]',
   initialized boolean default false,
   updated_at timestamptz default now()
 );
 
-insert into backstage_state (id) values (1) on conflict (id) do nothing;
+insert into bs2_state (id) values (1) on conflict (id) do nothing;
 
--- Trades table
-create table backstage_trades (
+create table bs2_trades (
   id uuid primary key default gen_random_uuid(),
   from_gm text not null,
   to_gm text not null,
@@ -29,8 +28,7 @@ create table backstage_trades (
   updated_at timestamptz default now()
 );
 
--- Match results
-create table backstage_matches (
+create table bs2_matches (
   id uuid primary key default gen_random_uuid(),
   gm1 text not null,
   gm2 text not null,
@@ -44,16 +42,27 @@ create table backstage_matches (
   played_at timestamptz default now()
 );
 
--- Enable realtime
-alter publication supabase_realtime add table backstage_state;
-alter publication supabase_realtime add table backstage_trades;
-alter publication supabase_realtime add table backstage_matches;
+create table bs2_storylines (
+  id uuid primary key default gen_random_uuid(),
+  title text,
+  gm1 text,
+  gm2 text,
+  status text default 'active',
+  events jsonb default '[]',
+  created_at timestamptz default now()
+);
 
--- RLS
-alter table backstage_state enable row level security;
-alter table backstage_trades enable row level security;
-alter table backstage_matches enable row level security;
+alter publication supabase_realtime add table bs2_state;
+alter publication supabase_realtime add table bs2_trades;
+alter publication supabase_realtime add table bs2_matches;
+alter publication supabase_realtime add table bs2_storylines;
 
-create policy "Allow all state" on backstage_state for all using (true) with check (true);
-create policy "Allow all trades" on backstage_trades for all using (true) with check (true);
-create policy "Allow all matches" on backstage_matches for all using (true) with check (true);
+alter table bs2_state enable row level security;
+alter table bs2_trades enable row level security;
+alter table bs2_matches enable row level security;
+alter table bs2_storylines enable row level security;
+
+create policy "Allow all bs2_state" on bs2_state for all using (true) with check (true);
+create policy "Allow all bs2_trades" on bs2_trades for all using (true) with check (true);
+create policy "Allow all bs2_matches" on bs2_matches for all using (true) with check (true);
+create policy "Allow all bs2_storylines" on bs2_storylines for all using (true) with check (true);

@@ -1,43 +1,33 @@
-import React, { useState, useEffect } from 'react'
-import { supabase, GMS, INITIAL_ROSTERS, FACTIONS, getGM } from './lib/data.js'
+import React, { useState, useEffect, createContext, useContext } from 'react'
+import { supabase, GMS, INITIAL_ROSTERS, getGM } from './lib/data.js'
 import Login from './components/Login.jsx'
-import Dashboard from './components/Dashboard.jsx'
+import Feed from './components/Feed.jsx'
 import Roster from './components/Roster.jsx'
-import Championships from './components/Championships.jsx'
-import Matches from './components/Matches.jsx'
-import Trades from './components/Trades.jsx'
-import Factions from './components/Factions.jsx'
-import Announcements from './components/Announcements.jsx'
+import Titles from './components/Titles.jsx'
+import Storylines from './components/Storylines.jsx'
+import HallOfFame from './components/HallOfFame.jsx'
+import FactionManager from './components/FactionManager.jsx'
 
-const NAV = [
-  { id: 'dashboard', label: 'Feed' },
-  { id: 'roster', label: 'Roster' },
-  { id: 'trades', label: 'Trades' },
-  { id: 'matches', label: 'Matches' },
-  { id: 'titles', label: 'Titles' },
-  { id: 'factions', label: 'Factions' },
-  { id: 'announcements', label: 'Announce' },
+export const AppCtx = createContext(null)
+export function useApp() { return useContext(AppCtx) }
+
+const TABS = [
+  { id: 'feed', label: 'Feed', icon: '⚡' },
+  { id: 'roster', label: 'Roster', icon: '👥' },
+  { id: 'titles', label: 'Titles', icon: '🏆' },
+  { id: 'storylines', label: 'Feuds', icon: '🔥' },
+  { id: 'hof', label: 'HoF', icon: '⭐' },
 ]
-
-const S = {
-  app: { minHeight: '100vh', background: '#0d0d0d', display: 'flex', flexDirection: 'column' },
-  header: { background: '#111', borderBottom: '2px solid #c8192a', padding: '0.6rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 },
-  logo: { fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: '#fff', letterSpacing: '0.08em' },
-  logoRed: { color: '#c8192a' },
-  gmBadge: { fontFamily: 'Barlow Condensed', fontSize: '0.75rem', letterSpacing: '0.15em', color: '#888', display: 'flex', alignItems: 'center', gap: '6px' },
-  nav: { background: '#0d0d0d', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', overflowX: 'auto', padding: '0 0.5rem' },
-  navBtn: { fontFamily: 'Barlow Condensed', fontSize: '0.8rem', letterSpacing: '0.15em', padding: '0.7rem 0.9rem', background: 'none', border: 'none', color: '#555', cursor: 'pointer', whiteSpace: 'nowrap', borderBottom: '2px solid transparent', transition: 'all 0.15s', textTransform: 'uppercase' },
-  navBtnActive: { color: '#fff', borderBottom: '2px solid #c8192a' },
-  content: { flex: 1, padding: '1rem', maxWidth: '700px', margin: '0 auto', width: '100%' },
-}
 
 export default function App() {
   const [gm, setGm] = useState(null)
   const [state, setState] = useState(null)
   const [trades, setTrades] = useState([])
   const [matches, setMatches] = useState([])
-  const [tab, setTab] = useState('dashboard')
+  const [storylines, setStorylines] = useState([])
+  const [tab, setTab] = useState('feed')
   const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('wwe_backstage_gm')
@@ -46,112 +36,125 @@ export default function App() {
 
   useEffect(() => {
     fetchAll()
-    const ch1 = supabase.channel('bs_state')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'backstage_state' }, fetchState)
-      .subscribe()
-    const ch2 = supabase.channel('bs_trades')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'backstage_trades' }, fetchTrades)
-      .subscribe()
-    const ch3 = supabase.channel('bs_matches')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'backstage_matches' }, fetchMatches)
-      .subscribe()
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); supabase.removeChannel(ch3) }
+    const subs = [
+      supabase.channel('bs2_state').on('postgres_changes', { event: '*', schema: 'public', table: 'bs2_state' }, fetchState).subscribe(),
+      supabase.channel('bs2_trades').on('postgres_changes', { event: '*', schema: 'public', table: 'bs2_trades' }, fetchTrades).subscribe(),
+      supabase.channel('bs2_matches').on('postgres_changes', { event: '*', schema: 'public', table: 'bs2_matches' }, fetchMatches).subscribe(),
+      supabase.channel('bs2_storylines').on('postgres_changes', { event: '*', schema: 'public', table: 'bs2_storylines' }, fetchStorylines).subscribe(),
+    ]
+    return () => subs.forEach(s => supabase.removeChannel(s))
   }, [])
 
   async function fetchAll() {
-    await Promise.all([fetchState(), fetchTrades(), fetchMatches()])
+    await Promise.all([fetchState(), fetchTrades(), fetchMatches(), fetchStorylines()])
     setLoading(false)
   }
 
   async function fetchState() {
-    const { data } = await supabase.from('backstage_state').select('*').eq('id', 1).single()
+    const { data } = await supabase.from('bs2_state').select('*').eq('id', 1).single()
     if (data) setState(data)
   }
-
   async function fetchTrades() {
-    const { data } = await supabase.from('backstage_trades').select('*').order('created_at', { ascending: false })
+    const { data } = await supabase.from('bs2_trades').select('*').order('created_at', { ascending: false })
     if (data) setTrades(data)
   }
-
   async function fetchMatches() {
-    const { data } = await supabase.from('backstage_matches').select('*').order('played_at', { ascending: false })
+    const { data } = await supabase.from('bs2_matches').select('*').order('played_at', { ascending: false })
     if (data) setMatches(data)
   }
+  async function fetchStorylines() {
+    const { data } = await supabase.from('bs2_storylines').select('*').order('created_at', { ascending: false })
+    if (data) setStorylines(data)
+  }
 
-  async function initializeState() {
+  async function pushFeedEvent(entry) {
+    if (!state) return
+    const feed = [{ ...entry, id: `${Date.now()}-${Math.random()}`, ts: new Date().toISOString() }, ...(state.feed || [])].slice(0, 100)
+    await supabase.from('bs2_state').update({ feed }).eq('id', 1)
+  }
+
+  async function initUniverse() {
     const rosters = {}
-    Object.entries(INITIAL_ROSTERS).forEach(([gmId, stars]) => {
-      rosters[gmId] = stars.map(s => ({ ...s, wins: 0, losses: 0, on_loan: false, loan_to: null, loan_matches: 0 }))
+    Object.entries(INITIAL_ROSTERS).forEach(([gmId, names]) => {
+      rosters[gmId] = names.map(name => ({ name, wins: 0, losses: 0 }))
     })
-    await supabase.from('backstage_state').upsert({
-      id: 1, rosters, championships: {}, factions: FACTIONS,
-      contract_signings: [], activity_feed: [], initialized: true,
+    await supabase.from('bs2_state').upsert({
+      id: 1, rosters, championships: {}, factions: [], feed: [], initialized: true,
     })
     fetchState()
   }
 
-  function handleLogin(gmId) {
-    setGm(gmId)
-    localStorage.setItem('wwe_backstage_gm', gmId)
-  }
-
-  function handleLogout() {
-    setGm(null)
-    localStorage.removeItem('wwe_backstage_gm')
-  }
-
-  async function addActivity(entry) {
-    if (!state) return
-    const feed = [{ ...entry, id: Date.now(), ts: new Date().toISOString() }, ...(state.activity_feed || [])].slice(0, 50)
-    await supabase.from('backstage_state').update({ activity_feed: feed }).eq('id', 1)
-  }
+  function handleLogin(gmId) { setGm(gmId); localStorage.setItem('wwe_backstage_gm', gmId) }
+  function handleLogout() { setGm(null); localStorage.removeItem('wwe_backstage_gm') }
 
   if (loading) return <Splash />
-  if (!state?.initialized) return <InitScreen onInit={initializeState} />
+  if (!state?.initialized) return <InitScreen onInit={initUniverse} />
   if (!gm) return <Login onLogin={handleLogin} />
 
   const pendingTrades = trades.filter(t => t.status === 'pending' && t.to_gm === gm).length
-
-  const props = { gm, state, trades, matches, addActivity, fetchState, fetchTrades, fetchMatches }
+  const ctx = { gm, state, trades, matches, storylines, pushFeedEvent, fetchState, fetchTrades, fetchMatches, fetchStorylines, modal, setModal }
 
   return (
-    <div style={S.app}>
-      <header style={S.header}>
-        <div style={S.logo}><span style={S.logoRed}>WWE</span> BACKSTAGE</div>
-        <div style={S.gmBadge}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: getGM(gm)?.color }} />
-          {getGM(gm)?.short}
-          <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: '0.7rem', letterSpacing: '0.1em', fontFamily: 'Barlow Condensed', marginLeft: 4 }}>SWITCH</button>
+    <AppCtx.Provider value={ctx}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#0a0a0a' }}>
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+          .fade-in { animation: fadeIn 0.3s ease; }
+        `}</style>
+
+        {/* header */}
+        <div style={{ background: '#0d0d0d', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0.7rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.05em' }}>
+            <span style={{ color: '#c8192a' }}>WWE</span>
+            <span style={{ color: '#fff' }}> BACKSTAGE</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: getGM(gm)?.color }} />
+            <span style={{ fontSize: '12px', fontWeight: 600, color: getGM(gm)?.color }}>{getGM(gm)?.short}</span>
+            <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '3px 8px', fontSize: '10px', color: '#666', cursor: 'pointer', fontFamily: 'Syne, sans-serif', letterSpacing: '0.05em' }}>SWITCH</button>
+          </div>
         </div>
-      </header>
 
-      <nav style={S.nav}>
-        {NAV.map(n => (
-          <button key={n.id} style={{ ...S.navBtn, ...(tab === n.id ? S.navBtnActive : {}) }} onClick={() => setTab(n.id)}>
-            {n.label}{n.id === 'trades' && pendingTrades > 0 ? ` (${pendingTrades})` : ''}
-          </button>
-        ))}
-      </nav>
+        {/* content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem', maxWidth: '640px', width: '100%', margin: '0 auto' }}>
+          <div className="fade-in" key={tab}>
+            {tab === 'feed' && <Feed />}
+            {tab === 'roster' && <Roster />}
+            {tab === 'titles' && <Titles />}
+            {tab === 'storylines' && <Storylines />}
+            {tab === 'hof' && <HallOfFame />}
+          </div>
+        </div>
 
-      <div style={S.content}>
-        {tab === 'dashboard' && <Dashboard {...props} />}
-        {tab === 'roster' && <Roster {...props} />}
-        {tab === 'trades' && <Trades {...props} />}
-        {tab === 'matches' && <Matches {...props} />}
-        {tab === 'titles' && <Championships {...props} />}
-        {tab === 'factions' && <Factions {...props} />}
-        {tab === 'announcements' && <Announcements {...props} />}
+        {/* bottom nav */}
+        <div style={{ background: '#0d0d0d', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexShrink: 0, paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          {TABS.map(t => {
+            const active = tab === t.id
+            const badge = t.id === 'feuds' ? pendingTrades : 0
+            return (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                style={{ flex: 1, padding: '0.6rem 0', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', position: 'relative', transition: 'opacity 0.15s', opacity: active ? 1 : 0.45 }}>
+                <span style={{ fontSize: '18px', lineHeight: 1 }}>{t.icon}</span>
+                <span style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.1em', color: active ? '#c8192a' : '#777', textTransform: 'uppercase' }}>{t.label}</span>
+                {active && <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '20px', height: '2px', background: '#c8192a', borderRadius: '0 0 2px 2px' }} />}
+                {badge > 0 && <div style={{ position: 'absolute', top: '4px', right: '20%', width: '8px', height: '8px', borderRadius: '50%', background: '#c8192a' }} />}
+              </button>
+            )
+          })}
+        </div>
       </div>
-    </div>
+    </AppCtx.Provider>
   )
 }
 
 function Splash() {
   return (
-    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0d0d' }}>
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a' }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontFamily: 'Bebas Neue', fontSize: '2.5rem', letterSpacing: '0.1em' }}><span style={{ color: '#c8192a' }}>WWE</span> BACKSTAGE</div>
-        <div style={{ fontFamily: 'Barlow Condensed', fontSize: '0.75rem', color: '#333', letterSpacing: '0.3em', marginTop: '0.5rem' }}>CONNECTING...</div>
+        <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '0.05em' }}><span style={{ color: '#c8192a' }}>WWE</span> BACKSTAGE</div>
+        <div style={{ fontSize: '11px', color: '#333', letterSpacing: '0.3em', marginTop: '8px' }}>CONNECTING...</div>
       </div>
     </div>
   )
@@ -159,11 +162,11 @@ function Splash() {
 
 function InitScreen({ onInit }) {
   return (
-    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0d0d', padding: '2rem' }}>
-      <div style={{ textAlign: 'center', maxWidth: '360px' }}>
-        <div style={{ fontFamily: 'Bebas Neue', fontSize: '2.5rem', letterSpacing: '0.1em', marginBottom: '0.25rem' }}><span style={{ color: '#c8192a' }}>WWE</span> BACKSTAGE</div>
-        <div style={{ fontFamily: 'Barlow Condensed', fontSize: '0.85rem', color: '#555', letterSpacing: '0.15em', marginBottom: '2rem', lineHeight: 1.6 }}>First time setup — this will load all rosters and initialize the universe.</div>
-        <button onClick={onInit} style={{ padding: '0.9rem 2.5rem', background: '#c8192a', border: 'none', borderRadius: '2px', fontFamily: 'Bebas Neue', fontSize: '1.1rem', letterSpacing: '0.15em', color: '#fff', cursor: 'pointer' }}>Initialize Universe</button>
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', padding: '2rem' }}>
+      <div style={{ textAlign: 'center', maxWidth: '340px' }}>
+        <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '0.05em', marginBottom: '8px' }}><span style={{ color: '#c8192a' }}>WWE</span> BACKSTAGE</div>
+        <div style={{ fontSize: '13px', color: '#555', lineHeight: 1.7, marginBottom: '2rem' }}>Welcome to the universe. Initialize to load all rosters and start the show.</div>
+        <button onClick={onInit} style={{ padding: '0.85rem 2rem', background: '#c8192a', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 700, letterSpacing: '0.1em', color: '#fff', cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}>INITIALIZE UNIVERSE</button>
       </div>
     </div>
   )

@@ -1,80 +1,54 @@
-# WWE Backstage — Claude Code Guide
+# WWE Backstage v2 — Claude Code Guide
 
-## What this is
-A WWE Universe Mode manager for 5 GMs (Srikant, Ashpak, KVD, Ekansh, Debu). Real-time web app built with React + Vite + Supabase. Deployed on Vercel.
+## What changed from v1
+- Font: Syne (modern, wide, premium) replacing Barlow Condensed/Bebas
+- No announcement screen — removed completely
+- Feed is now the core: every action creates an interactive feed card
+- Feed cards have action buttons (cut promo, challenge, fire back, demand rematch, etc.)
+- AI promos via Gemini Flash — context-aware, in-character, editable before posting
+- Factions: form/break dynamically, pick members, color, name
+- HoF: auto-updates from match logs — title reigns, win%, records
+- Tag titles: two GMs, two superstars
+- Vacating a title has a promo option
+- Match log updates W/L records AND title holder
+- PWA: installable on iOS/Android
 
-## Universe context
-- **The Authority** (heel faction): Srikant + Ashpak — always have each other's backs
-- **Faces**: KVD, Ekansh, Debu — against The Authority
-- **Srikant** is the commissioner — has admin privileges
+## Env vars
+- VITE_SUPABASE_URL
+- VITE_SUPABASE_ANON_KEY  
+- VITE_GEMINI_KEY (get free at aistudio.google.com)
 
-## Tech stack
-- React 18 + Vite 5
-- Supabase (3 tables: backstage_state, backstage_trades, backstage_matches)
-- Hosted on Vercel
-
-## Project structure
-```
-src/
-  App.jsx                  # Root, nav, auth, realtime subscriptions
-  main.jsx
-  lib/
-    data.js               # All constants: GMS, CHAMPIONSHIPS, FACTIONS, INITIAL_ROSTERS, helpers
-  components/
-    Login.jsx             # GM selection screen
-    UI.jsx                # Shared primitives: Card, OvrBadge, ActionBtn, etc.
-    Dashboard.jsx         # Activity feed, title snapshot, recent matches
-    Roster.jsx            # View any GM's roster, W/L records
-    Trades.jsx            # Send/accept/reject trade offers
-    Matches.jsx           # Log match results, auto-updates W/L and titles
-    Championships.jsx     # Assign/vacate WWE, World HW, IC, US, Tag titles
-    Factions.jsx          # The Authority faction display + GM standings
-    Announcements.jsx     # Generate WhatsApp text + downloadable HTML card
-supabase_setup.sql         # Run in Supabase SQL editor
-```
-
-## Supabase tables
-### backstage_state (id=1)
-- rosters: { gmId: [{name, ovr, wins, losses, on_loan, loan_to, loan_matches}] }
-- championships: { champId: {gm, superstar, won_at} }
-- factions: [{id, name, members[], color}]
-- activity_feed: [{id, type, text, ts}]
-- initialized: boolean
-
-### backstage_trades
-- from_gm, to_gm, offer: {giving[], receiving[], notes}, status: pending/accepted/rejected
-
-### backstage_matches
-- gm1, gm2, superstar1, superstar2, winner_gm, winner_superstar, match_type, title_on_line, notes
-
-## Championships
-- wwe: WWE Championship
-- world: World Heavyweight Championship
-- ic: Intercontinental Championship
-- us: United States Championship
-- tag: Tag Team Championships
+## Tables (bs2_* prefix, separate from v1)
+- bs2_state: rosters, championships, factions, feed, initialized
+- bs2_trades: trade offers
+- bs2_matches: match results
+- bs2_storylines: (reserved for future)
 
 ## GMs
-- srikant → Srikant Freakin' Hamsa (#378ADD) — commissioner, The Authority
-- ashpak → Ashpak "KVD's Nightmare" (#1D9E75) — The Authority
-- kvd → KVD "The Best In The World" (#BA7517)
-- ekansh → Ekansh "The Beast" Tiwari (#D85A30)
-- debu → Debu "The Tribal Chief" (#7F77DD)
+- srikant (heel, #4a9eff) — The Authority
+- ashpak (heel, #2ecc8a) — The Authority
+- kvd (face, #f0a500)
+- ekansh (face, #e8533a)
+- debu (face, #a78bfa)
 
-## Common tasks
+## Key files
+- src/lib/data.js — all constants, rosters, superstar moves data
+- src/lib/gemini.js — Gemini Flash API, fallback promos if no key
+- src/App.jsx — root, context, bottom nav, realtime subscriptions
+- src/components/Feed.jsx — interactive feed cards with action menus
+- src/components/Roster.jsx — superstar cards, floating detail modal
+- src/components/Titles.jsx — assign/vacate with promo, tag team support
+- src/components/Storylines.jsx — feuds/callouts, match log, trades
+- src/components/HallOfFame.jsx — auto stats, GM standings, superstar leaderboards
+- src/components/FactionManager.jsx — form/break factions (embedded in Factions tab — add to App if needed)
+- src/components/PromoModal.jsx — free-floating promo cutter
 
-### Add a new superstar to a GM's roster
-Edit INITIAL_ROSTERS in src/lib/data.js, then re-initialize from the app (admin only).
-Or update Supabase directly via SQL.
+## To get Gemini API key (free)
+1. Go to aistudio.google.com
+2. Click "Get API Key"
+3. Create a new key, copy it
+4. Add to Vercel env vars as VITE_GEMINI_KEY
 
-### Add a new championship
-Add to CHAMPIONSHIPS array in src/lib/data.js.
-
-### Add a new faction
-Add to FACTIONS array in src/lib/data.js.
-
-### Change a GM's nickname
-Update in GMS array in src/lib/data.js AND run SQL to update sold_log winner names if needed.
-
-### Reset everything
-Run supabase_setup.sql again (drops and recreates tables), then click "Initialize Universe" in the app.
+## The Authority faction
+Pre-seeded in INITIAL_ROSTERS but factions are now dynamic — they can form/break in-app.
+The app starts with no factions. Srikant should form The Authority on first run.
