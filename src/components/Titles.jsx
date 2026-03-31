@@ -1,72 +1,76 @@
 import React, { useState } from 'react'
 import { useApp } from '../App.jsx'
 import { supabase, GMS, CHAMPIONSHIPS, getGM, getChamp } from '../lib/data.js'
-import { Card, Label, OvrBadge, Btn, Modal, Divider, hexToRgb, SelectInput, TextInput, Spinner } from './UI.jsx'
+import { Card, Label, Btn, Modal, Divider, SelectInput, TextInput } from './UI.jsx'
 import { generatePromo } from '../lib/gemini.js'
 
 export default function Titles() {
-  const { state, gm, pushFeedEvent, fetchState, setModal } = useApp()
+  const { state, setModal } = useApp()
   const [assigning, setAssigning] = useState(null)
   const [vacating, setVacating] = useState(null)
   const champs = state?.championships || {}
-  const rosters = state?.rosters || {}
 
   return (
-    <div style={{ paddingBottom: '5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <div style={{ fontSize: '18px', fontWeight: 800, color: '#fff' }}>Championships</div>
-        <Btn small variant="ghost" onClick={() => setModal({ type: 'free_promo' })}>🎤 Promo</Btn>
+    <div style={{ paddingBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.8rem', flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text)' }}>Championships</div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.16em', marginTop: '0.22rem' }}>
+            Gold, prestige, and title history
+          </div>
+        </div>
+        <Btn small variant="ghost" onClick={() => setModal({ type: 'free_promo' })}>Cut Promo</Btn>
       </div>
 
-      {CHAMPIONSHIPS.map(c => {
-        const holder = champs[c.id]
-        const holderGM = holder ? getGM(holder.gm) : null
+      <div style={{ display: 'grid', gap: '0.8rem' }}>
+        {CHAMPIONSHIPS.map(c => {
+          const holder = champs[c.id]
+          const holderGM = holder ? getGM(holder.gm) : null
 
-        return (
-          <Card key={c.id} style={{ padding: '1rem' }}>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px' }}>
-              <div style={{ width: '4px', minHeight: '48px', background: c.color, borderRadius: '2px', flexShrink: 0, marginTop: '2px' }} />
-              <div style={{ flex: 1 }}>
-                <Label color={c.color}>{c.name}</Label>
-                {holder ? (
-                  <div style={{ marginTop: '6px' }}>
-                    {c.isTag ? (
-                      <div>
-                        {holder.superstar && <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', letterSpacing: '0.01em' }}>{holder.superstar}</div>}
-                        {holder.superstar2 && <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', letterSpacing: '0.01em' }}>{holder.superstar2}</div>}
-                        <div style={{ fontSize: '12px', color: holderGM?.color, fontWeight: 600, marginTop: '2px' }}>
-                          {holderGM?.short}{holder.gm2 ? ` & ${getGM(holder.gm2)?.short}` : ''}
+          return (
+            <Card key={c.id} style={{ padding: '1rem 1.05rem' }}>
+              <div style={{ display: 'flex', gap: '0.95rem', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                <div style={{ width: '0.35rem', minHeight: '72px', background: c.color, borderRadius: '999px', flexShrink: 0, boxShadow: `0 0 26px ${c.color}55` }} />
+                <div style={{ flex: 1 }}>
+                  <Label color={c.color}>{c.name}</Label>
+                  {holder ? (
+                    <div style={{ marginTop: '0.55rem' }}>
+                      {c.isTag ? (
+                        <div>
+                          {holder.superstar && <div style={{ fontSize: '1.08rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '0.01em' }}>{holder.superstar}</div>}
+                          {holder.superstar2 && <div style={{ fontSize: '1.08rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '0.01em', marginTop: '0.12rem' }}>{holder.superstar2}</div>}
+                          <div style={{ fontSize: '0.76rem', color: holderGM?.color, fontWeight: 700, marginTop: '0.34rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                            {holderGM?.short}{holder.gm2 ? ` & ${getGM(holder.gm2)?.short}` : ''}
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#fff', letterSpacing: '0.01em' }}>{holder.superstar}</div>
-                        <div style={{ fontSize: '12px', color: holderGM?.color, fontWeight: 600 }}>{holderGM?.short}</div>
-                      </>
-                    )}
-                    {holder.won_at && (
-                      <div style={{ fontSize: '10px', color: '#444', marginTop: '3px', letterSpacing: '0.06em' }}>
-                        Since {new Date(holder.won_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#333', marginTop: '6px', letterSpacing: '0.06em' }}>VACANT</div>
-                )}
+                      ) : (
+                        <>
+                          <div style={{ fontSize: '1.16rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '0.01em' }}>{holder.superstar}</div>
+                          <div style={{ fontSize: '0.76rem', color: holderGM?.color, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{holderGM?.short}</div>
+                        </>
+                      )}
+                      {holder.won_at && (
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '0.34rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                          Since {new Date(holder.won_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-dim)', marginTop: '0.55rem', letterSpacing: '0.18em', textTransform: 'uppercase' }}>Vacant</div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <Btn small variant={holder ? 'ghost' : 'gold'} onClick={() => setAssigning(c.id)} style={{ flex: 1 }}>
-                {holder ? 'Change' : 'Assign Title'}
-              </Btn>
-              {holder && (
-                <Btn small variant="red" onClick={() => setVacating(c.id)}>Vacate</Btn>
-              )}
-            </div>
-          </Card>
-        )
-      })}
+              <div style={{ display: 'flex', gap: '0.6rem' }}>
+                <Btn small variant={holder ? 'ghost' : 'gold'} onClick={() => setAssigning(c.id)} style={{ flex: 1 }}>
+                  {holder ? 'Change Holder' : 'Assign Title'}
+                </Btn>
+                {holder && <Btn small variant="red" onClick={() => setVacating(c.id)}>Vacate</Btn>}
+              </div>
+            </Card>
+          )
+        })}
+      </div>
 
       <AssignModal champId={assigning} onClose={() => setAssigning(null)} />
       <VacateModal champId={vacating} onClose={() => setVacating(null)} />
@@ -86,7 +90,6 @@ function AssignModal({ champId, onClose }) {
   const champ = getChamp(champId)
   const rosters = state?.rosters || {}
   const roster1 = [...(rosters[gm1] || [])].sort((a, b) => b.ovr - a.ovr)
-  const roster2 = gm2 ? [...(rosters[gm2] || [])].sort((a, b) => b.ovr - a.ovr) : []
 
   async function assign() {
     if (!star1) return
@@ -116,20 +119,22 @@ function AssignModal({ champId, onClose }) {
     fetchState()
     setSaving(false)
     onClose()
-    setStar1(''); setStar2(''); setGm2('')
+    setStar1('')
+    setStar2('')
+    setGm2('')
   }
 
   return (
     <Modal open title={`Assign ${champ?.name}`} onClose={onClose}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
         <div>
-          <Label style={{ marginBottom: '6px' }}>GM</Label>
+          <Label style={{ marginBottom: '0.45rem' }}>GM</Label>
           <SelectInput value={gm1} onChange={v => { setGm1(v); setStar1('') }}>
             {GMS.map(g => <option key={g.id} value={g.id}>{g.short}</option>)}
           </SelectInput>
         </div>
         <div>
-          <Label style={{ marginBottom: '6px' }}>Champion</Label>
+          <Label style={{ marginBottom: '0.45rem' }}>Champion</Label>
           <SelectInput value={star1} onChange={setStar1}>
             <option value="">Select superstar</option>
             {roster1.map(s => <option key={s.name} value={s.name}>{s.name} ({s.ovr})</option>)}
@@ -139,16 +144,16 @@ function AssignModal({ champId, onClose }) {
         {champ?.isTag && (
           <>
             <Divider />
-            <div style={{ fontSize: '11px', color: '#555', letterSpacing: '0.1em' }}>TAG PARTNER</div>
+            <div style={{ fontSize: '0.66rem', color: 'var(--text-dim)', letterSpacing: '0.16em', textTransform: 'uppercase' }}>Tag Partner</div>
             <div>
-              <Label style={{ marginBottom: '6px' }}>Partner GM</Label>
+              <Label style={{ marginBottom: '0.45rem' }}>Partner GM</Label>
               <SelectInput value={gm2} onChange={v => { setGm2(v); setStar2('') }}>
                 <option value="">Same GM</option>
                 {GMS.map(g => <option key={g.id} value={g.id}>{g.short}</option>)}
               </SelectInput>
             </div>
             <div>
-              <Label style={{ marginBottom: '6px' }}>Tag Partner</Label>
+              <Label style={{ marginBottom: '0.45rem' }}>Tag Partner</Label>
               <SelectInput value={star2} onChange={setStar2}>
                 <option value="">Select partner</option>
                 {(gm2 ? [...(state?.rosters?.[gm2] || [])] : roster1).sort((a, b) => b.ovr - a.ovr).map(s => <option key={s.name} value={s.name}>{s.name} ({s.ovr})</option>)}
@@ -157,7 +162,7 @@ function AssignModal({ champId, onClose }) {
           </>
         )}
 
-        <Btn variant="solid" onClick={assign} disabled={!star1 || saving} style={{ width: '100%', marginTop: '4px' }}>
+        <Btn variant="solid" onClick={assign} disabled={!star1 || saving} style={{ width: '100%', marginTop: '0.2rem' }}>
           {saving ? 'Assigning...' : 'Confirm Assignment'}
         </Btn>
       </div>
@@ -207,15 +212,15 @@ function VacateModal({ champId, onClose }) {
 
   return (
     <Modal open title={`Vacate ${champ?.name}`} onClose={onClose}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div style={{ fontSize: '13px', color: '#888', lineHeight: 1.6 }}>
-          This will remove the current champion. Optionally cut a promo explaining why.
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+        <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
+          This removes the current champion. Add a promo if you want the decision to hit the feed with context.
         </div>
         <Btn variant="ghost" onClick={genPromo} disabled={loading} style={{ width: '100%' }}>
-          {loading ? '✨ Generating...' : '✨ Generate Vacate Promo'}
+          {loading ? 'Generating...' : 'Generate Vacate Promo'}
         </Btn>
-        <TextInput value={promoText} onChange={setPromoText} placeholder="Optional promo (or leave empty)..." rows={3} />
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <TextInput value={promoText} onChange={setPromoText} placeholder="Optional promo..." rows={3} />
+        <div style={{ display: 'flex', gap: '0.6rem' }}>
           <Btn variant="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Btn>
           <Btn variant="red" onClick={vacate} disabled={saving} style={{ flex: 1 }}>
             {saving ? 'Vacating...' : 'Vacate Title'}
